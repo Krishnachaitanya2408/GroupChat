@@ -1,0 +1,214 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Group Chat</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            font-family: "Arial", sans-serif;
+        }
+
+        body {
+            background: #f8f9fa;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+        }
+
+        .chat-container {
+            width: 500px;
+            background: white;
+            border-radius: 12px;
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+            overflow: hidden;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .chat-header {
+            background: #3498db;
+            color: white;
+            padding: 15px;
+            text-align: center;
+            font-size: 20px;
+            font-weight: bold;
+        }
+
+        .welcome-msg {
+            background: #2ecc71;
+            color: white;
+            padding: 10px;
+            text-align: center;
+            font-size: 16px;
+            font-weight: bold;
+        }
+
+        .chat-box {
+            height: 500px;
+            overflow-y: auto;
+            padding: 15px;
+            background: #ecf0f1;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .message {
+            max-width: 75%;
+            padding: 12px;
+            border-radius: 10px;
+            margin: 8px 0;
+            position: relative;
+            word-wrap: break-word;
+            display: inline-block;
+        }
+
+        .message.sent {
+            background: #3498db;
+            color: white;
+            align-self: flex-end;
+            border-top-right-radius: 0;
+        }
+
+        .message.received {
+            background: #ffffff;
+            border: 1px solid #ddd;
+            align-self: flex-start;
+            border-top-left-radius: 0;
+        }
+
+        .message strong {
+            display: block;
+            font-size: 12px;
+            color: #e74c3c;
+        }
+
+        .timestamp {
+            font-size: 10px;
+            color: black;
+            position: absolute;
+            bottom: -16px;
+            right: 5px;
+        }
+
+        .message img {
+            max-width: 100%;
+            border-radius: 5px;
+            margin-top: 5px;
+        }
+
+        .input-area {
+            display: flex;
+            padding: 12px;
+            background: #fff;
+            border-top: 1px solid #ddd;
+        }
+
+        input[type="text"] {
+            flex: 1;
+            padding: 12px;
+            border: none;
+            border-radius: 5px;
+            outline: none;
+            font-size: 14px;
+        }
+
+        .send-btn, .upload-btn {
+            background: #2ecc71;
+            color: white;
+            border: none;
+            padding: 12px 18px;
+            border-radius: 5px;
+            cursor: pointer;
+            margin-left: 10px;
+            font-weight: bold;
+            transition: 0.3s;
+        }
+
+        .send-btn:hover, .upload-btn:hover {
+            background: #27ae60;
+        }
+
+        .file-input {
+            display: none;
+        }
+    </style>
+</head>
+<body>
+
+    <div class="chat-container">
+        <div class="chat-header">📢 Group Chat</div>
+        <div id="welcomeMsg" class="welcome-msg"></div>
+        <div class="chat-box" id="chatBox"></div>
+        <div class="input-area">
+            <input type="text" id="messageInput" placeholder="Type a message..." onkeypress="handleKeyPress(event)">
+            <input type="file" id="fileInput" class="file-input" accept="image/*" onchange="sendImage(event)">
+            <button class="upload-btn" onclick="document.getElementById('fileInput').click()">📷</button>
+            <button class="send-btn" onclick="sendMessage()">Send</button>
+        </div>
+    </div>
+
+    <script>
+        const username = prompt("Enter your username:");
+        document.getElementById("welcomeMsg").textContent = `Welcome, ${username}!`;
+
+        const ws = new WebSocket("ws://localhost:8080");
+        const chatBox = document.getElementById("chatBox");
+
+        ws.onmessage = (event) => {
+            const data = JSON.parse(event.data);
+            const messageElement = document.createElement("div");
+            messageElement.classList.add("message");
+
+            if (data.username === username) {
+                messageElement.classList.add("sent");
+            } else {
+                messageElement.classList.add("received");
+            }
+
+            messageElement.innerHTML = `<strong>${data.username}</strong>`;
+
+            if (data.type === "text") {
+                messageElement.innerHTML += `${data.content}`;
+            } else if (data.type === "image") {
+                messageElement.innerHTML += `<img src="${data.content}" alt="Sent Image">`;
+            }
+
+            messageElement.innerHTML += `<span class="timestamp">${data.timestamp}</span>`;
+
+            chatBox.appendChild(messageElement);
+            chatBox.scrollTop = chatBox.scrollHeight;
+        };
+
+        function sendMessage() {
+            const messageInput = document.getElementById("messageInput");
+            if (messageInput.value.trim() !== "") {
+                ws.send(JSON.stringify({ type: "text", content: messageInput.value, username }));
+                messageInput.value = "";
+            }
+        }
+
+        function sendImage(event) {
+            const file = event.target.files[0];
+            if (file) {
+                const reader = new FileReader();
+                reader.onload = function () {
+                    ws.send(JSON.stringify({ type: "image", content: reader.result, username }));
+                };
+                reader.readAsDataURL(file);
+            }
+        }
+
+        function handleKeyPress(event) {
+            if (event.key === "Enter") {
+                sendMessage();
+            }
+        }
+    </script>
+
+</body>
+</html>
